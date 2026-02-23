@@ -1,0 +1,5 @@
+certs/
+.env*
+!.env.example
+*.pem
+*.key
