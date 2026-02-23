@@ -10,7 +10,7 @@ Options:
   --repo <owner/repo>            Required repository slug
   --pr <number>                  Required source PR number
   --target-branch <branch>       Target branch for new branch checkout (default: repo default branch)
-  --source-base-branch <branch>  PR source base branch used to compute exact PR diff (default: auto-detect from PR, fallback: target branch)
+  --source-base-branch <branch>  Optional override for PR source base branch used to compute exact PR diff
   --branch-prefix <prefix>       Branch prefix (default: copy-pr)
   --ssh-host <host>              SSH host alias (default: github.com)
   --api-host <host>              API host (default: api.github.com)
@@ -63,32 +63,6 @@ detect_pr_base_branch() {
   return 1
 }
 
-find_pr_commit_on_branch() {
-  local branch_ref="$1"
-  local pr_number="$2"
-  local commit_sha=""
-
-  commit_sha="$(git log --format=%H --grep="Merge pull request #${pr_number}" -n 1 "${branch_ref}" || true)"
-  if [[ -n "$commit_sha" ]]; then
-    echo "$commit_sha"
-    return 0
-  fi
-
-  commit_sha="$(git log --format=%H --grep="(#${pr_number})" -n 1 "${branch_ref}" || true)"
-  if [[ -n "$commit_sha" ]]; then
-    echo "$commit_sha"
-    return 0
-  fi
-
-  commit_sha="$(git log --format=%H --grep="#${pr_number}" -n 1 "${branch_ref}" || true)"
-  if [[ -n "$commit_sha" ]]; then
-    echo "$commit_sha"
-    return 0
-  fi
-
-  return 1
-}
-
 detect_repo_default_branch() {
   local ref=""
   local branch=""
@@ -109,6 +83,11 @@ detect_repo_default_branch() {
   fi
 
   return 1
+}
+
+get_parent_count() {
+  local ref="$1"
+  git rev-list --parents -n 1 "$ref" | awk '{print NF-1}'
 }
 
 REPO=""
@@ -180,91 +159,96 @@ if [[ -z "$TARGET_BRANCH" ]]; then
   fi
 fi
 
-if [[ -z "$SOURCE_BASE_BRANCH" ]]; then
-  if DETECTED_BASE_BRANCH="$(detect_pr_base_branch "$API_HOST" "$REPO" "$PR_NUMBER" "$TOKEN_ENV")"; then
-    SOURCE_BASE_BRANCH="$DETECTED_BASE_BRANCH"
-    echo "[info] Auto-detected source_base_branch=${SOURCE_BASE_BRANCH} from PR metadata"
-  else
-    SOURCE_BASE_BRANCH="$TARGET_BRANCH"
-    echo "[warn] Could not auto-detect PR base branch. Falling back to target branch: ${TARGET_BRANCH}"
+git fetch origin "$TARGET_BRANCH" --quiet
+git fetch origin "pull/${PR_NUMBER}/head:pr-${PR_NUMBER}-head" --quiet
+
+PR_HEAD_REF="pr-${PR_NUMBER}-head"
+PR_HEAD_PARENT_COUNT="$(get_parent_count "${PR_HEAD_REF}")"
+DIFF_STRATEGY=""
+DIFF_FROM=""
+DIFF_TO=""
+USE_CHERRY_PICK=0
+
+if [[ "$PR_HEAD_PARENT_COUNT" -eq 1 ]]; then
+  # Single-commit PR heads are best replayed directly to avoid base-branch drift.
+  USE_CHERRY_PICK=1
+  DIFF_STRATEGY="single-commit-cherry-pick"
+else
+  if [[ -z "$SOURCE_BASE_BRANCH" ]]; then
+    if DETECTED_BASE_BRANCH="$(detect_pr_base_branch "$API_HOST" "$REPO" "$PR_NUMBER" "$TOKEN_ENV")"; then
+      SOURCE_BASE_BRANCH="$DETECTED_BASE_BRANCH"
+      echo "[info] Auto-detected source_base_branch=${SOURCE_BASE_BRANCH} from PR metadata"
+    else
+      echo "[error] Could not auto-detect PR base branch from PR metadata." >&2
+      echo "[error] Reason: missing API access/token, PR not found, or API host mismatch." >&2
+      exit 1
+    fi
+  fi
+
+  git fetch origin "$SOURCE_BASE_BRANCH" --quiet
+
+  # PR-exact diff is computed from the PR source base branch merge-base to PR head.
+  MERGE_BASE="$(git merge-base "origin/${SOURCE_BASE_BRANCH}" "${PR_HEAD_REF}")"
+  if [[ -z "$MERGE_BASE" ]]; then
+    echo "Unable to calculate merge-base." >&2
+    exit 1
+  fi
+
+  DIFF_FROM="$MERGE_BASE"
+  DIFF_TO="$PR_HEAD_REF"
+  DIFF_STRATEGY="head-vs-merge-base"
+
+  if git diff --quiet "${DIFF_FROM}".."${DIFF_TO}"; then
+    echo "[error] No PR diff found between merge-base and PR head." >&2
+    echo "[error] Reason: PR may already be merged/empty, or metadata points to an unexpected head state." >&2
+    exit 1
   fi
 fi
 
 echo "[info] repo=$REPO"
 echo "[info] source_pr=$PR_NUMBER"
 echo "[info] target_branch=$TARGET_BRANCH"
-echo "[info] source_base_branch=$SOURCE_BASE_BRANCH"
+if [[ -n "$SOURCE_BASE_BRANCH" ]]; then
+  echo "[info] source_base_branch=$SOURCE_BASE_BRANCH"
+fi
+echo "[info] pr_head_parent_count=$PR_HEAD_PARENT_COUNT"
 echo "[info] branch=$NEW_BRANCH"
 echo "[info] workdir=$WORKDIR"
-
-git fetch origin "$TARGET_BRANCH" --quiet
-git fetch origin "$SOURCE_BASE_BRANCH" --quiet
-git fetch origin "pull/${PR_NUMBER}/head:pr-${PR_NUMBER}-head" --quiet
-
-# PR-exact diff is computed from the PR source base branch merge-base to PR head.
-PR_HEAD_REF="pr-${PR_NUMBER}-head"
-MERGE_BASE="$(git merge-base "origin/${SOURCE_BASE_BRANCH}" "${PR_HEAD_REF}")"
-
-if [[ -z "$MERGE_BASE" ]]; then
-  echo "Unable to calculate merge-base." >&2
-  exit 1
-fi
-
-DIFF_FROM="$MERGE_BASE"
-DIFF_TO="$PR_HEAD_REF"
-CONTENT_REF="$PR_HEAD_REF"
-DIFF_STRATEGY="head-vs-merge-base"
-
-if git diff --quiet "${DIFF_FROM}".."${DIFF_TO}"; then
-  if MERGED_COMMIT="$(find_pr_commit_on_branch "origin/${SOURCE_BASE_BRANCH}" "${PR_NUMBER}")"; then
-    PARENT_COUNT="$(git show -s --format=%P "$MERGED_COMMIT" | awk '{print NF}')"
-    if [[ "$PARENT_COUNT" -ge 2 ]]; then
-      DIFF_FROM="${MERGED_COMMIT}^1"
-    else
-      DIFF_FROM="${MERGED_COMMIT}^"
-    fi
-    DIFF_TO="$MERGED_COMMIT"
-    CONTENT_REF="$MERGED_COMMIT"
-    DIFF_STRATEGY="merge-commit-fallback"
-    echo "[info] Primary PR head diff is empty; falling back to merged PR commit: ${MERGED_COMMIT}"
-  fi
-fi
-
 echo "[info] diff_strategy=${DIFF_STRATEGY}"
 
 git checkout -b "$NEW_BRANCH" "origin/${TARGET_BRANCH}" --quiet
 
-while IFS= read -r -d '' st; do
-  case "$st" in
-    R*)
-      IFS= read -r -d '' oldp
-      IFS= read -r -d '' newp
-      git rm -q --ignore-unmatch "$oldp" || true
-      git checkout "$CONTENT_REF" -- "$newp"
-      ;;
-    C*)
-      IFS= read -r -d '' oldp
-      IFS= read -r -d '' newp
-      git checkout "$CONTENT_REF" -- "$newp"
-      ;;
-    D)
-      IFS= read -r -d '' path
-      git rm -q --ignore-unmatch "$path" || true
-      ;;
-    *)
-      IFS= read -r -d '' path
-      git checkout "$CONTENT_REF" -- "$path"
-      ;;
-  esac
-done < <(git diff --name-status -z "${DIFF_FROM}".."${DIFF_TO}")
+if [[ "$USE_CHERRY_PICK" -eq 1 ]]; then
+  if ! git cherry-pick -x "${PR_HEAD_REF}"; then
+    echo "[error] Failed to cherry-pick PR head commit onto target branch '${TARGET_BRANCH}'." >&2
+    echo "[error] Resolve conflicts manually or choose a different target/base combination." >&2
+    exit 1
+  fi
+else
+  PATCH_FILE="${WORKDIR}/pr-${PR_NUMBER}.patch"
+  git diff --binary --find-renames "${DIFF_FROM}".."${DIFF_TO}" > "${PATCH_FILE}"
 
-if git diff --cached --quiet; then
-  echo "No changes found for PR #${PR_NUMBER} after applying strategy '${DIFF_STRATEGY}'."
-  echo "Try checking if the PR actually changed files, or provide a different source base branch."
-  exit 1
+  if [[ ! -s "${PATCH_FILE}" ]]; then
+    echo "No patch content found for PR #${PR_NUMBER} after applying strategy '${DIFF_STRATEGY}'."
+    echo "Try checking if the PR actually changed files, or provide a different source base branch."
+    exit 1
+  fi
+
+  if ! git apply --3way --index "${PATCH_FILE}"; then
+    echo "[error] Failed to apply PR patch onto target branch '${TARGET_BRANCH}'."
+    echo "[error] This usually means the PR changes do not cleanly apply to '${TARGET_BRANCH}'."
+    echo "[error] Resolve conflicts manually or choose a different target/base combination."
+    exit 1
+  fi
+
+  if git diff --cached --quiet; then
+    echo "No changes found for PR #${PR_NUMBER} after applying strategy '${DIFF_STRATEGY}'."
+    echo "Try checking if the PR actually changed files, or provide a different source base branch."
+    exit 1
+  fi
+
+  git commit -m "Copy changes from PR #${PR_NUMBER} onto ${TARGET_BRANCH}" --quiet
 fi
-
-git commit -m "Copy changes from PR #${PR_NUMBER} onto ${TARGET_BRANCH}" --quiet
 git push -u origin "$NEW_BRANCH" --quiet
 
 echo "[ok] Pushed branch: $NEW_BRANCH"
@@ -279,7 +263,13 @@ if [[ "$CREATE_PR" -eq 1 ]]; then
   fi
 
   [[ -z "$PR_TITLE" ]] && PR_TITLE="Copy PR #${PR_NUMBER} changes to ${TARGET_BRANCH}"
-  [[ -z "$PR_BODY" ]] && PR_BODY="This PR copies file changes from #${PR_NUMBER} onto a timestamped branch created from ${TARGET_BRANCH}. Source base branch for PR diff: ${SOURCE_BASE_BRANCH}."
+  if [[ -z "$PR_BODY" ]]; then
+    if [[ "$USE_CHERRY_PICK" -eq 1 ]]; then
+      PR_BODY="This PR replays the single head commit from #${PR_NUMBER} onto a timestamped branch created from ${TARGET_BRANCH}."
+    else
+      PR_BODY="This PR copies file changes from #${PR_NUMBER} onto a timestamped branch created from ${TARGET_BRANCH}. Source base branch for PR diff: ${SOURCE_BASE_BRANCH}."
+    fi
+  fi
 
   PAYLOAD="$(jq -n \
     --arg title "$PR_TITLE" \

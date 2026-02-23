@@ -31,9 +31,9 @@ bash .codex/skills/pr-copy-to-main-autonomous/scripts/copy_pr_to_main.sh \
 
 Notes:
 - `--target-branch` is where the new branch starts. If omitted, repository default branch is auto-detected.
-- By default, the script auto-detects the PR's original base branch from PR metadata.
-- You can still set `--source-base-branch` explicitly (for example `staging`) when needed.
-- If PR head has no diff against that base (already merged), the script auto-falls back to the merged PR commit diff on the base branch.
+- If the PR head is a single commit, the script replays that exact commit on top of target branch (`git cherry-pick -x`) to avoid branch-drift.
+- For multi-commit PRs, the script auto-detects the PR's original base branch from metadata and applies the PR patch hunks onto target branch.
+- If PR metadata or diff cannot be fetched for multi-commit PRs, the script exits with a failure reason.
 
 ## Maintenance Rule
 - Whenever any skill is created, updated, renamed, or removed under `.codex/skills/`, update this `SKILLS_GUIDE.md` in the same change.

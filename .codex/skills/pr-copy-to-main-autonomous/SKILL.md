@@ -46,18 +46,17 @@ bash .codex/skills/pr-copy-to-main-autonomous/scripts/copy_pr_to_main.sh \
 
 ## What It Does
 1. Clones repository to `/tmp`
-2. Detects the source PR base branch from PR metadata when `--source-base-branch` is not provided
-3. Fetches `target branch`, `source base branch`, and `pull/<PR>/head`
-4. Creates `copy-pr-<PR>-<timestamp>` from target branch head
+2. Fetches `target branch` and `pull/<PR>/head`
+3. If PR head is a single commit, replays that exact commit onto target branch via `git cherry-pick -x` (drift-safe default)
+4. Otherwise, detects/fetches source PR base branch from PR metadata (or `--source-base-branch`)
 5. Computes PR-exact file diff from `merge-base(source base branch, PR head) -> PR head`
-6. If that diff is empty (common when PR is already merged to source base), auto-falls back to the merged PR commit diff found on source base branch
-7. Copies only those changed files (add/modify/delete/rename), no extra files
-8. Commits and pushes branch
-9. Optionally creates PR via GitHub REST API
+6. Applies the PR patch hunks onto the new branch with `git apply --3way --index`
+7. Commits and pushes branch
+8. Optionally creates PR via GitHub REST API
 
 ## Safety Notes
 - Remote-only workflow; does not touch local working repo.
 - If API access is missing, it still pushes the branch and prints a ready PR URL.
 - By default, the script auto-detects the repository default branch for `target branch` when `--target-branch` is omitted.
-- By default, the script auto-detects the original PR base branch (for example `staging`) to avoid pulling unrelated drift.
-- If auto-detection is unavailable in your environment, pass `--source-base-branch` explicitly.
+- For single-commit PR heads, the script uses commit replay and does not require PR base branch metadata.
+- For multi-commit PR heads, the script auto-detects the original PR base branch (for example `staging`) to avoid pulling unrelated drift.
