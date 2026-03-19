@@ -27,6 +27,22 @@ Claude Code automatically detects and loads skills from `.claude/skills/` based 
 
 ## Available Local Skills
 
+### `generate-commit-messages`
+- Codex path: `.codex/skills/generate-commit-messages/`
+- Purpose: Read local Git repository changes from a filesystem path and generate 2-4 Conventional Commit message options using the configured LLM from `.env`.
+
+Run:
+
+```bash
+bash .codex/skills/generate-commit-messages/scripts/generate_commit_messages.sh \
+  --repo-path /absolute/path/to/repository
+```
+
+Notes:
+- Reads `LLM_PROVIDER` and `LLM_MODEL` from `.env` in the target repo first, then from the current workspace root.
+- Supports legacy `LLM_PROVIDE` as a fallback for compatibility.
+- Prefers staged changes; if nothing is staged, it falls back to working tree and untracked changes.
+
 ### `pr-copy-to-main-autonomous`
 - Codex path: `.codex/skills/pr-copy-to-main-autonomous/`
 - Claude Code path: `.claude/skills/pr-copy-to-main-autonomous/`
