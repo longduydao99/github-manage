@@ -37,19 +37,19 @@ Prerequisite: gh CLI must be authenticated (`gh auth login`). No SSH config or P
 
 Repo from user's message:
 ```bash
-bash .codex/skills/pr-copy-to-main-autonomous/scripts/test_gh_auth.sh \
+bash skills/pr-copy-to-main-autonomous/scripts/test_gh_auth.sh \
   --repo <owner/repo> --pr <number>
 ```
 
 Repo from `.env` (omit `--repo`):
 ```bash
-bash .codex/skills/pr-copy-to-main-autonomous/scripts/test_gh_auth.sh \
+bash skills/pr-copy-to-main-autonomous/scripts/test_gh_auth.sh \
   --pr <number>
 ```
 
 With PR create permission probe (safe, no PR created):
 ```bash
-bash .codex/skills/pr-copy-to-main-autonomous/scripts/test_gh_auth.sh \
+bash skills/pr-copy-to-main-autonomous/scripts/test_gh_auth.sh \
   --repo <owner/repo> \
   --check-create-pr
 ```
@@ -58,19 +58,19 @@ bash .codex/skills/pr-copy-to-main-autonomous/scripts/test_gh_auth.sh \
 
 Repo from user's message:
 ```bash
-bash .codex/skills/pr-copy-to-main-autonomous/scripts/copy_pr_to_main.sh \
+bash skills/pr-copy-to-main-autonomous/scripts/copy_pr_to_main.sh \
   --repo <owner/repo> --pr <number> --target-branch <branch> --create-pr
 ```
 
 Repo from `.env` (omit `--repo`):
 ```bash
-bash .codex/skills/pr-copy-to-main-autonomous/scripts/copy_pr_to_main.sh \
+bash skills/pr-copy-to-main-autonomous/scripts/copy_pr_to_main.sh \
   --pr <number> --target-branch <branch> --create-pr
 ```
 
 Override source base branch only when PR metadata cannot be auto-detected:
 ```bash
-bash .codex/skills/pr-copy-to-main-autonomous/scripts/copy_pr_to_main.sh \
+bash skills/pr-copy-to-main-autonomous/scripts/copy_pr_to_main.sh \
   --repo <owner/repo> \
   --pr <number> \
   --target-branch <branch> \

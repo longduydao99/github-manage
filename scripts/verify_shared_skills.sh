@@ -26,3 +26,7 @@ for skill_name in $(shared_skill_names); do
   [[ -e "$ROOT_DIR/.codex/skills/$skill_name/SKILL.md" ]] || fail "broken Codex symlink target for $skill_name"
   [[ -e "$ROOT_DIR/.claude/skills/$skill_name/SKILL.md" ]] || fail "broken Claude symlink target for $skill_name"
 done
+
+if grep -R -nE '\.(codex|claude)/skills/' "$ROOT_DIR"/skills/*/SKILL.md "$ROOT_DIR"/skills/*/scripts/* 2>/dev/null; then
+  fail "shared skill content still references agent-specific skill paths"
+fi
