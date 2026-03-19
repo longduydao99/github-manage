@@ -30,3 +30,17 @@ done
 if grep -R -nE '\.(codex|claude)/skills/' "$ROOT_DIR"/skills/*/SKILL.md "$ROOT_DIR"/skills/*/scripts/* 2>/dev/null; then
   fail "shared skill content still references agent-specific skill paths"
 fi
+
+for script_path in "$ROOT_DIR"/skills/*/scripts/*; do
+  [[ -e "$script_path" ]] || continue
+  [[ -x "$script_path" ]] || fail "script is not executable: $script_path"
+done
+
+for skill_name in $(shared_skill_names); do
+  grep -Fq "skills/$skill_name/" "$ROOT_DIR/SKILLS_GUIDE.md" || fail "SKILLS_GUIDE missing canonical path for $skill_name"
+done
+
+bash -n "$ROOT_DIR/skills/pr-copy-to-main-autonomous/scripts/copy_pr_to_main.sh"
+bash -n "$ROOT_DIR/skills/pr-copy-to-main-autonomous/scripts/test_gh_auth.sh"
+[[ -e "$ROOT_DIR/.codex/skills/pr-copy-to-main-autonomous/scripts/copy_pr_to_main.sh" ]] || fail "Codex alias does not resolve"
+[[ -e "$ROOT_DIR/.claude/skills/pr-copy-to-main-autonomous/scripts/copy_pr_to_main.sh" ]] || fail "Claude alias does not resolve"

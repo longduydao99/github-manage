@@ -4,30 +4,45 @@ This file explains how to use local skills in this repository.
 
 ## Where Skills Live
 
-### Codex Skills (`.codex/skills/`)
-- Skill folders are stored under `.codex/skills/`.
+### Canonical Skills (`skills/`)
+- Canonical skill folders are stored under `skills/`.
 - Each skill must contain `SKILL.md`.
 - Optional executable automation can live in `scripts/` inside the skill folder.
+- `skills/manifest.json` is the visibility source of truth for shared skills.
 
-### Claude Code Skills (`.claude/skills/`)
-- Project-level Claude Code skills live under `.claude/skills/`.
-- Each skill must contain `SKILL.md` with YAML front-matter (`name`, `description`).
-- Claude Code discovers and applies these skills automatically based on the `description` field.
-- These skills reference scripts under `.codex/skills/<skill-name>/scripts/`.
+### Agent Compatibility Paths
+- `.codex/skills/` contains symlinks to canonical shared skills in `skills/`.
+- `.claude/skills/` contains symlinks to canonical shared skills in `skills/`.
+- These directories are discovery entrypoints only. Edit the canonical files in `skills/`, not the symlink aliases.
 
 ## How To Use a Skill
 
-### Codex Skills
-1. Identify the skill folder under `.codex/skills/`.
-2. Read the skill instruction file `<skill>/SKILL.md`.
-3. Run the commands described in that skill.
-
-### Claude Code Skills
-Claude Code automatically detects and loads skills from `.claude/skills/` based on context. You can also explicitly invoke a skill by describing the task (e.g. "copy PR #123 to main"). Claude will match the description and follow the skill's instructions.
+1. Identify the canonical skill folder under `skills/`.
+2. Read the skill instruction file `skills/<skill-name>/SKILL.md`.
+3. Run the commands described in that skill using canonical `skills/...` paths.
 
 ## Available Local Skills
 
+### `generate-commit-messages`
+- Canonical path: `skills/generate-commit-messages/`
+- Codex path: `.codex/skills/generate-commit-messages/`
+- Claude Code path: `.claude/skills/generate-commit-messages/`
+- Purpose: Read local Git repository changes from a filesystem path and generate 2-4 Conventional Commit message options using the configured LLM from `.env`.
+
+Run:
+
+```bash
+bash skills/generate-commit-messages/scripts/generate_commit_messages.sh \
+  --repo-path /absolute/path/to/repository
+```
+
+Notes:
+- Reads `LLM_PROVIDER` and `LLM_MODEL` from `.env` in the target repo first, then from the current workspace root.
+- Supports legacy `LLM_PROVIDE` as a fallback for compatibility.
+- Prefers staged changes; if nothing is staged, it falls back to working tree and untracked changes.
+
 ### `pr-copy-to-main-autonomous`
+- Canonical path: `skills/pr-copy-to-main-autonomous/`
 - Codex path: `.codex/skills/pr-copy-to-main-autonomous/`
 - Claude Code path: `.claude/skills/pr-copy-to-main-autonomous/`
 - Purpose: Create a new timestamped branch from a target branch, copy exact file changes from a source PR, push the branch, and optionally create a PR.
@@ -39,7 +54,7 @@ Requires `gh auth login` (run once). No SSH config or PAT env vars needed for sc
 Run (with `--repo`):
 
 ```bash
-bash .codex/skills/pr-copy-to-main-autonomous/scripts/copy_pr_to_main.sh \
+bash skills/pr-copy-to-main-autonomous/scripts/copy_pr_to_main.sh \
   --repo <owner/repo> \
   --pr <number> \
   --target-branch <target-branch> \
@@ -49,7 +64,7 @@ bash .codex/skills/pr-copy-to-main-autonomous/scripts/copy_pr_to_main.sh \
 Run (repo from `.env`, omit `--repo`):
 
 ```bash
-bash .codex/skills/pr-copy-to-main-autonomous/scripts/copy_pr_to_main.sh \
+bash skills/pr-copy-to-main-autonomous/scripts/copy_pr_to_main.sh \
   --pr <number> \
   --target-branch <target-branch> \
   --create-pr
@@ -64,7 +79,7 @@ Notes:
 Auth preflight (with `--repo`):
 
 ```bash
-bash .codex/skills/pr-copy-to-main-autonomous/scripts/test_gh_auth.sh \
+bash skills/pr-copy-to-main-autonomous/scripts/test_gh_auth.sh \
   --repo <owner/repo> \
   --pr <number>
 ```
@@ -72,9 +87,10 @@ bash .codex/skills/pr-copy-to-main-autonomous/scripts/test_gh_auth.sh \
 Auth preflight (repo from `.env`):
 
 ```bash
-bash .codex/skills/pr-copy-to-main-autonomous/scripts/test_gh_auth.sh \
+bash skills/pr-copy-to-main-autonomous/scripts/test_gh_auth.sh \
   --pr <number>
 ```
 
 ## Maintenance Rule
-- Whenever any skill is created, updated, renamed, or removed under `.codex/skills/`, update this `SKILLS_GUIDE.md` in the same change.
+- Whenever any canonical skill is created, updated, renamed, or removed under `skills/`, update this `SKILLS_GUIDE.md` in the same change.
+- Keep `skills/manifest.json` aligned with shared skill exposure under `.codex/skills/` and `.claude/skills/`.

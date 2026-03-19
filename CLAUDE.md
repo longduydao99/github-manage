@@ -21,9 +21,11 @@ Scripts use `gh auth login` for all git and API operations — no SSH key config
 
 ## Skill System
 
-Skills live under `.codex/skills/`. Each skill folder contains:
+Canonical skills live under `skills/`. Each skill folder contains:
 - `SKILL.md` — front-matter + instructions (name, description, usage)
 - `scripts/` — executable shell scripts that implement the skill
+
+Claude-compatible discovery paths live under `.claude/skills/` as symlinks to canonical shared skills. `.codex/skills/` is also a symlinked compatibility layer for Codex-oriented tooling.
 
 **Maintenance rule:** Any time a skill is created, updated, renamed, or removed, `SKILLS_GUIDE.md` must be updated in the same change.
 
@@ -33,7 +35,7 @@ Copies exact file changes from a source PR onto a new timestamped branch from a 
 
 **Main script:**
 ```bash
-bash .codex/skills/pr-copy-to-main-autonomous/scripts/copy_pr_to_main.sh \
+bash skills/pr-copy-to-main-autonomous/scripts/copy_pr_to_main.sh \
   --repo <owner/repo> \
   --pr <number> \
   --target-branch <branch> \
@@ -42,7 +44,7 @@ bash .codex/skills/pr-copy-to-main-autonomous/scripts/copy_pr_to_main.sh \
 
 **Auth preflight check** (run before main script to verify credentials):
 ```bash
-bash .codex/skills/pr-copy-to-main-autonomous/scripts/test_gh_auth.sh \
+bash skills/pr-copy-to-main-autonomous/scripts/test_gh_auth.sh \
   --repo <owner/repo> --pr <number>
 ```
 
@@ -55,9 +57,12 @@ Key behaviour:
 ## Architecture
 
 ```
-.codex/skills/<skill-name>/
+skills/<skill-name>/
     SKILL.md          # Skill definition (front-matter + instructions)
     scripts/          # Implementation scripts
+skills/manifest.json  # Shared skill visibility source of truth
+.codex/skills/<skill-name>/   # Symlink compatibility entrypoint
+.claude/skills/<skill-name>/  # Symlink compatibility entrypoint
 SKILLS_GUIDE.md       # Index of all available skills (keep in sync)
 AGENTS.md             # Guidelines for AI agents working in this repo
 README.md             # Full product documentation
@@ -67,5 +72,6 @@ certs/                # Local SSH key material (gitignored)
 
 ## Key Conventions
 
-- Skills are matched and loaded by name from `.codex/skills/`
+- Skills are maintained canonically in `skills/`
+- `.claude/skills/` and `.codex/skills/` are discovery aliases for shared skills
 - GitHub authentication uses `gh auth login`; no SSH config or PAT env vars needed for scripts
