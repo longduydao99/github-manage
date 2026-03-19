@@ -74,6 +74,28 @@ Key behaviour:
 - Clones into `/tmp`; never touches your local working repo
 - `--target-branch` is optional; defaults to the repo's default branch
 
+#### `generate-commit-messages`
+
+Reads local changes from a Git repository path and asks the configured local LLM for 2-4 Conventional Commit message suggestions.
+
+**Config (`.env`):**
+```env
+LLM_PROVIDER=ollama
+LLM_MODEL=qwen2.5-coder:7b
+```
+
+**Run:**
+```bash
+bash skills/generate-commit-messages/scripts/generate_commit_messages.sh \
+  --repo-path /absolute/path/to/repository
+```
+
+Key behaviour:
+- Reads `.env` from the target repository first, then from this workspace root
+- Supports `ollama` as the current provider
+- Prefers staged changes; falls back to working tree and untracked changes when nothing is staged
+- Outputs 2-4 ranked Conventional Commit subject lines
+
 ## Architecture
 
 ```
