@@ -33,7 +33,7 @@ Current provider support:
 Run:
 
 ```bash
-bash .codex/skills/generate-commit-messages/scripts/generate_commit_messages.sh \
+bash skills/generate-commit-messages/scripts/generate_commit_messages.sh \
   --repo-path /absolute/path/to/repository
 ```
 

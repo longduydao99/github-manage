@@ -38,7 +38,8 @@ If you add automation or agent workflows, document:
 - Keep `SKILLS_GUIDE.md` in sync with local skills.
 
 ### Skills Documentation Policy
-- When creating, updating, renaming, or removing any skill under `.codex/skills/`, you must also update `SKILLS_GUIDE.md` in the same change.
+- When creating, updating, renaming, or removing any canonical skill under `skills/`, you must also update `SKILLS_GUIDE.md` in the same change.
+- If the change affects a shared skill, keep `skills/manifest.json` and the symlink exposure under `.codex/skills/` and `.claude/skills/` in sync.
 - `SKILLS_GUIDE.md` should include:
   - Skill name
   - Skill path

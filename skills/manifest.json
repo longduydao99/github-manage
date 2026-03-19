@@ -1,0 +1,14 @@
+{
+  "skills": [
+    {
+      "name": "generate-commit-messages",
+      "visibility": "shared",
+      "agents": ["codex", "claude"]
+    },
+    {
+      "name": "pr-copy-to-main-autonomous",
+      "visibility": "shared",
+      "agents": ["codex", "claude"]
+    }
+  ]
+}

@@ -9,7 +9,7 @@ A script-based Git management tool that uses the `gh` CLI for authentication and
 - Secure: credentials managed by `gh`, never hardcoded in scripts
 
 ### 🎯 Skill-Based Workflow
-- Pre-defined skills in `.codex/skills/` handle common Git workflows
+- Pre-defined skills in `skills/` handle common Git workflows
 - Each skill is a `SKILL.md` definition + shell scripts
 - Skills invoke `gh` and `git` directly — no external MCP dependencies
 
@@ -47,7 +47,7 @@ These let you omit `--repo` on every CLI call. Scripts combine them as `${GITHUB
 
 ### Available Skills
 
-Skills live under `.codex/skills/`. See `SKILLS_GUIDE.md` for the full index.
+Skills live under `skills/`. See `SKILLS_GUIDE.md` for the full index. Agent-specific directories under `.codex/skills/` and `.claude/skills/` are symlinked compatibility entrypoints.
 
 #### `pr-copy-to-main-autonomous`
 
@@ -55,13 +55,13 @@ Copies exact file changes from an existing PR onto a new timestamped branch from
 
 **Auth preflight check:**
 ```bash
-bash .codex/skills/pr-copy-to-main-autonomous/scripts/test_gh_auth.sh \
+bash skills/pr-copy-to-main-autonomous/scripts/test_gh_auth.sh \
   --repo <owner/repo> --pr <number>
 ```
 
 **Run:**
 ```bash
-bash .codex/skills/pr-copy-to-main-autonomous/scripts/copy_pr_to_main.sh \
+bash skills/pr-copy-to-main-autonomous/scripts/copy_pr_to_main.sh \
   --repo <owner/repo> \
   --pr <number> \
   --target-branch <branch> \
@@ -86,7 +86,7 @@ LLM_MODEL=qwen2.5-coder:7b
 
 **Run:**
 ```bash
-bash .codex/skills/generate-commit-messages/scripts/generate_commit_messages.sh \
+bash skills/generate-commit-messages/scripts/generate_commit_messages.sh \
   --repo-path /absolute/path/to/repository
 ```
 
@@ -99,9 +99,12 @@ Key behaviour:
 ## Architecture
 
 ```
-.codex/skills/<skill-name>/
+skills/<skill-name>/
     SKILL.md          # Skill definition (name, description, usage)
     scripts/          # Shell scripts that implement the skill
+.codex/skills/<skill-name>/   # Symlink compatibility entrypoint
+.claude/skills/<skill-name>/  # Symlink compatibility entrypoint
+skills/manifest.json          # Shared skill visibility source of truth
 SKILLS_GUIDE.md       # Index of all skills (keep in sync with skills/)
 AGENTS.md             # Guidelines for AI agents working in this repo
 README.md             # This file
@@ -131,7 +134,7 @@ gh auth login           # Re-authenticate if needed
 
 1. Fork the repository
 2. Create a feature branch
-3. Add or update the skill under `.codex/skills/`
+3. Add or update the canonical skill under `skills/`
 4. Update `SKILLS_GUIDE.md` in the same change
 5. Submit a pull request
 

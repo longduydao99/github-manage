@@ -3,12 +3,14 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SCRIPT_PATH="$ROOT_DIR/.codex/skills/generate-commit-messages/scripts/generate_commit_messages.sh"
+SCRIPT_PATH="$ROOT_DIR/skills/generate-commit-messages/scripts/generate_commit_messages.sh"
 
 fail() {
   printf 'FAIL: %s\n' "$1" >&2
   exit 1
 }
+
+[[ -x "$SCRIPT_PATH" ]] || fail "missing canonical script path"
 
 assert_contains() {
   local needle="$1"
